@@ -15,7 +15,6 @@ import (
 )
 
 func main() {
-
 	var (
 		httpAddr = flag.String("http", ":8101", "http listen address")
 		ctx      = context.Background()
