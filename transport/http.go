@@ -14,6 +14,25 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Permitir qualquer origem. Em produção, você deve restringir isso para o domínio do seu frontend.
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
+
+		// Se for uma requisição OPTIONS (pre-flight), apenas envie os cabeçalhos e saia
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Chamar o próximo manipulador na cadeia
+		next.ServeHTTP(w, r)
+	})
+}
+
 func NewHttpServer(ctx context.Context, s service.Service, logger kitlog.Logger) *mux.Router {
 
 	CriarPreCardapio := kithttp.NewServer(
@@ -106,8 +125,9 @@ func NewHttpServer(ctx context.Context, s service.Service, logger kitlog.Logger)
 	)
 
 	r := mux.NewRouter()
+	r.Use(corsMiddleware)
 
-	//Rotas Pré cardapio
+	//Rotas Pré-cardapio
 	r.Methods(http.MethodPost, http.MethodOptions).Path("/pre-cardapio").Handler(CriarPreCardapio)
 	r.Methods(http.MethodGet, http.MethodOptions).Path("/pre-cardapios").Handler(ListarTodosPreCardapio)
 	r.Methods(http.MethodGet, http.MethodOptions).Path("/pre-cardapio/{id}").Handler(BuscarPreCardapioID)
@@ -118,11 +138,11 @@ func NewHttpServer(ctx context.Context, s service.Service, logger kitlog.Logger)
 	r.Methods(http.MethodPost, http.MethodOptions).Path("/cardapio").Handler(CriarCardapio)
 	r.Methods(http.MethodGet, http.MethodOptions).Path("/cardapios").Handler(ListarTodosCardapios)
 	r.Methods(http.MethodGet, http.MethodOptions).Path("/cardapio/{id}").Handler(BuscarCardapioID)
-	r.Methods(http.MethodGet, http.MethodOptions).Path("/cardapio-data/{data}").Handler(BuscarCardapioQtd) //
+	r.Methods(http.MethodGet, http.MethodOptions).Path("/cardapio-data/{data}").Handler(BuscarCardapioQtd) //Busca tudo relacionado ao cardápio por data 
 	r.Methods(http.MethodPut, http.MethodOptions).Path("/cardapio/{id}").Handler(AtualizarCardapio)
 	r.Methods(http.MethodDelete, http.MethodOptions).Path("/cardapio/{id}").Handler(DeletarCardapio)
 
-	//Rotas Cardapio
+	//Rotas Quantidade de Almoços
 	r.Methods(http.MethodPost, http.MethodOptions).Path("/quantidade-almoco").Handler(CriarQuantidade)
 	r.Methods(http.MethodGet, http.MethodOptions).Path("/quantidade-almocos").Handler(BuscarQuantidades)
 	r.Methods(http.MethodPut, http.MethodOptions).Path("/quantidade-almoco/{id}").Handler(AtualizarQuantidades)

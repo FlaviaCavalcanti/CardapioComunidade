@@ -11,12 +11,6 @@ type PreCardapio struct {
 	PesoPrato int     `json:"peso_prato"`
 }
 
-type AnotacaoDia struct {
-	ID    int    `json:"id"`
-	Data  string `json:"data"`
-	Texto string `json:"texto"`
-}
-
 type QuantidadeAlmoco struct {
 	ID         int    `json:"id"`
 	CardapioID int    `json:"cardapio_id"`

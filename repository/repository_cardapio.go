@@ -59,14 +59,15 @@ func (r *Repo) BuscarCardapioIDr(id int) (*entity.Cardapio, error) {
 
 	if erro := row.Scan(&card.ID, &card.Data, &card.Descricao, &card.CHO, &card.LIP, &card.PTN, &card.KCAL, &card.PesoPrato); erro != nil {
 		if erro == sql.ErrNoRows {
-			return nil, nil
+			return nil, nil // Retorna nil, nil se não encontrar
 		}
 		return nil, erro
 	}
 	return &card, nil
 }
 
-func (r *Repo) BuscarPorDataR(data string) (entity.Cardapio, error) {
+// MODIFICAÇÃO AQUI: Retorna *entity.Cardapio (ponteiro) e nil se não encontrar.
+func (r *Repo) BuscarPorDataR(data string) (*entity.Cardapio, error) {
 	query := `SELECT id, data, descricao, cho, lip, ptn, kcal, peso_prato FROM cardapios WHERE data = ?`
 	row := r.DB.QueryRow(query, data)
 
@@ -74,9 +75,12 @@ func (r *Repo) BuscarPorDataR(data string) (entity.Cardapio, error) {
 
 	erro := row.Scan(&carda.ID, &carda.Data, &carda.Descricao, &carda.CHO, &carda.LIP, &carda.PTN, &carda.KCAL, &carda.PesoPrato)
 	if erro != nil {
-		return entity.Cardapio{}, erro
+		if erro == sql.ErrNoRows {
+			return nil, nil // **Retorna nil para cardapio e nil para erro se não encontrar**
+		}
+		return nil, erro // Retorna o erro real se algo mais der errado
 	}
-	return carda, nil
+	return &carda, nil // Retorna o ponteiro para o cardapio encontrado
 }
 
 func (r *Repo) BuscarQuantidadeCardapio(cardapioID int) ([]entity.QuantidadeAlmoco, error) {
@@ -100,7 +104,3 @@ func (r *Repo) BuscarQuantidadeCardapio(cardapioID int) ([]entity.QuantidadeAlmo
 
 	return quantidads, nil
 }
-
-// func (r *Repo) BuscarPorIntervaloDeData(inicio, fim string) ([]entity.Cardapio), error{
-
-// }

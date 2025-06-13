@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cardápio</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js" defer></script> <style>
+      /* Estilos para o Modal */
+      .modal {
+        display: none; /* Escondido por padrão */
+        position: fixed; /* Posição fixa na tela */
+        z-index: 1000; /* Acima de outros elementos */
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto; /* Habilita scroll se o conteúdo for muito grande */
+        background-color: rgba(0,0,0,0.4); /* Fundo semi-transparente */
+        align-items: center; /* Centraliza verticalmente */
+        justify-content: center; /* Centraliza horizontalmente */
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Largura do modal */
+        max-width: 500px; /* Largura máxima */
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        position: relative;
+      }
+      .close-button {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        position: absolute;
+        top: 10px;
+        right: 20px;
+      }
+      .close-button:hover,
+      .close-button:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .modal-input-group {
+        margin-bottom: 15px;
+      }
+      .modal-input-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      .modal-input-group input[type="number"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box; /* Garante que padding e border não aumentem a largura */
+      }
+    </style>
+
+    <script defer>
+      document.addEventListener("DOMContentLoaded", function () {
+        const selectedDateElement = document.getElementById("selectedDate");
+        const cardapioTextarea = document.getElementById("cardapioText");
+        const aldeiaInput = document.getElementById("quantidadeAldeia");
+        const florDoCampoInput = document.getElementById("quantidadeFlorDoCampo");
+        const cooperativaInput = document.getElementById("quantidadeCooperativa");
+        const calendarInput = document.getElementById("calendarInput");
+        const saveCardapioButton = document.getElementById("saveCardapioButton");
+        const moreInfoButton = document.getElementById("moreInfoButton");
+        
+        // Elementos do Modal
+        const moreInfoModal = document.getElementById("moreInfoModal");
+        const closeMoreInfoButton = document.getElementById("closeMoreInfoButton");
+        const saveMoreInfoDetailsButton = document.getElementById("saveMoreInfoDetailsButton");
+        const choInput = document.getElementById("choInput");
+        const lipInput = document.getElementById("lipInput");
+        const ptnInput = document.getElementById("ptnInput");
+        const kcalInput = document.getElementById("kcalInput");
+        const pesoPratoInput = document.getElementById("pesoPratoInput");
+
+
+        let currentSelectedDate = new Date(); // Para armazenar a data atualmente selecionada
+        let currentCardapioId = null; // Para armazenar o ID do cardápio do dia
+        let currentCardapioDetails = null; // Para armazenar todos os detalhes do cardápio do dia
+
+        // Função para formatar a data para 'YYYY-MM-DD'
+        function formatDate(date) {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0'); // Meses são de 0 a 11
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Função para carregar os dados do cardápio para uma data específica
+        async function loadCardapioData(date) {
+            currentSelectedDate = date; // Atualiza a data selecionada
+            const formattedDate = formatDate(date);
+            selectedDateElement.textContent = `Dia ${formattedDate}`;
+            cardapioTextarea.value = "Carregando...";
+            aldeiaInput.value = "";
+            florDoCampoInput.value = "";
+            cooperativaInput.value = "";
+            
+            // Reinicia os detalhes do cardápio
+            currentCardapioId = null;
+            currentCardapioDetails = null;
+            // Desabilita o botão "Mais informações" por padrão até que um cardápio seja carregado/criado
+            moreInfoButton.disabled = true; 
+            moreInfoButton.classList.add("opacity-50", "cursor-not-allowed");
+
+
+            try {
+                const response = await fetch(`http://localhost:8101/cardapio-data/${formattedDate}`);
+                if (!response.ok) {
+                    // Se o backend retorna um erro HTTP que não seja 404, algo deu errado na requisição.
+                    if (response.status === 404) {
+                        cardapioTextarea.value = `Nenhum cardápio cadastrado para ${formattedDate}.`;
+                        console.log(`Nenhum cardápio encontrado para a data: ${formattedDate}`);
+                        return; // Não precisa processar mais
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log("Dados recebidos:", data); // Verifique este log no console!
+
+                // Se data.cardapio for null, significa que não há cardápio para a data
+                if (data.cardapio) {
+                    cardapioTextarea.value = data.cardapio.descricao || ''; 
+                    currentCardapioId = data.cardapio.id; 
+                    currentCardapioDetails = data.cardapio; 
+                    moreInfoButton.disabled = false; 
+                    moreInfoButton.classList.remove("opacity-50", "cursor-not-allowed");
+                } else {
+                     cardapioTextarea.value = `Nenhum cardápio cadastrado para ${formattedDate}.`;
+                }
+
+                // Preencher as quantidades - 'local' e 'quantidade'
+                if (data.quantidade && Array.isArray(data.quantidade)) {
+                    // Limpar todos os campos de quantidade antes de preencher
+                    aldeiaInput.value = "";
+                    florDoCampoInput.value = "";
+                    cooperativaInput.value = "";
+
+                    data.quantidade.forEach(item => {
+                        if (item.local === "ALDEIA") {
+                            aldeiaInput.value = item.quantidade; 
+                        } else if (item.local === "FLOR DO CAMARA") {
+                            florDoCampoInput.value = item.quantidade; 
+                        } else if (item.local === "COOPERATIVA") {
+                            cooperativaInput.value = item.quantidade; 
+                        }
+                    });
+                } else {
+                    // Se não houver dados de quantidade, garanta que os campos estejam vazios
+                    aldeiaInput.value = "";
+                    florDoCampoInput.value = "";
+                    cooperativaInput.value = "";
+                }
+
+            } catch (error) {
+                console.error("Erro ao buscar dados do cardápio:", error);
+                cardapioTextarea.value = `Erro ao carregar cardápio para ${formattedDate}. Verifique o console.`;
+            }
+        }
+
+        // Função para salvar/atualizar o cardápio e quantidades
+        async function saveCardapioData() {
+            const formattedDate = formatDate(currentSelectedDate);
+            const descricao = cardapioTextarea.value;
+            const quantidadeAldeia = parseInt(aldeiaInput.value) || 0;
+            const quantidadeFlorDoCampo = parseInt(florDoCampoInput.value) || 0;
+            const quantidadeCooperativa = parseInt(cooperativaInput.value) || 0;
+
+            if (!descricao) {
+                alert("Por favor, preencha a descrição do cardápio.");
+                return;
+            }
+
+            // Se currentCardapioId é null, estamos criando um novo cardápio.
+            // Se currentCardapioId tem um valor, estamos atualizando um existente.
+            let method = "POST";
+            let url = "http://localhost:8101/cardapio";
+            if (currentCardapioId) {
+                method = "PUT";
+                url = `http://localhost:8101/cardapio/${currentCardapioId}`;
+            }
+
+            // Incluir os detalhes nutricionais existentes (se existirem) ou padrão se for um novo
+            const existingDetails = currentCardapioDetails || {};
+            const cardapioPayload = {
+                data: formattedDate,
+                descricao: descricao,
+                cho: parseFloat(existingDetails.cho) || 0.0,
+                lip: parseFloat(existingDetails.lip) || 0.0,
+                ptn: parseFloat(existingDetails.ptn) || 0.0,
+                kcal: parseFloat(existingDetails.kcal) || 0.0,
+                peso_prato: parseInt(existingDetails.peso_prato) || 0
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(cardapioPayload)
+                });
+                if (!response.ok) {
+                    throw new Error(`Erro ao salvar cardápio: ${response.status}`);
+                }
+                const data = await response.json();
+                // Se for um POST, capture o novo ID
+                if (method === "POST") {
+                    currentCardapioId = data.id;
+                }
+                alert("Cardápio salvo com sucesso!");
+            } catch (error) {
+                console.error("Erro ao salvar cardápio:", error);
+                alert(`Erro ao salvar cardápio: ${error.message}`);
+                return;
+            }
+
+            // 2. Salvar as Quantidades de Almoço
+            // Primeiro, vamos buscar as quantidades existentes para este cardapio para saber se é UPDATE ou POST
+            let existingQuantities = [];
+            if (currentCardapioId) {
+                try {
+                    // Note: This fetch here is redundant if currentCardapioDetails is already populated.
+                    // However, for robustness if currentCardapioDetails somehow isn't fresh,
+                    // it re-fetches quantities.
+                    const qResponse = await fetch(`http://localhost:8101/cardapio-data/${formattedDate}`);
+                    if (qResponse.ok) {
+                        const qData = await qResponse.json();
+                        if (qData.quantidade && Array.isArray(qData.quantidade)) {
+                            existingQuantities = qData.quantidade;
+                        }
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar quantidades existentes:", error);
+                }
+            }
+
+
+            const quantidadesParaProcessar = [
+                { local: "ALDEIA", quantidade: quantidadeAldeia },
+                { local: "FLOR DO CAMARA", quantidade: quantidadeFlorDoCampo },
+                { local: "COOPERATIVA", quantidade: quantidadeCooperativa }
+            ];
+
+            for (const qtd of quantidadesParaProcessar) {
+                const existingQtd = existingQuantities.find(eq => eq.local === qtd.local);
+                const qtdPayload = {
+                    cardapio_id: currentCardapioId,
+                    local: qtd.local,
+                    quantidade: qtd.quantidade
+                };
+
+                try {
+                    let qtdMethod = "POST";
+                    let qtdUrl = "http://localhost:8101/quantidade-almoco";
+
+                    if (existingQtd) { // Se a quantidade para este local já existe, é um PUT
+                        qtdMethod = "PUT";
+                        qtdUrl = `http://localhost:8101/quantidade-almoco/${existingQtd.id}`;
+                        qtdPayload.id = existingQtd.id; // Adiciona o ID para a requisição PUT
+                    }
+
+                    const response = await fetch(qtdUrl, {
+                        method: qtdMethod,
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(qtdPayload)
+                    });
+                    if (!response.ok) {
+                        throw new Error(`Erro ao salvar quantidade para ${qtd.local}: ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error(`Erro ao salvar quantidade para ${qtd.local}:`, error);
+                    alert(`Erro ao salvar quantidade para ${qtd.local}: ${error.message}`);
+                    // Pode continuar ou parar aqui, dependendo da sua regra de negócio
+                }
+            }
+             // Recarrega os dados para o dia para garantir que tudo está atualizado
+            loadCardapioData(currentSelectedDate);
+        }
+
+        // --- Funções para o Modal "Mais informações" ---
+        function openMoreInfoModal() {
+            // Verificar se há um cardápio selecionado (e seu ID)
+            if (!currentCardapioId) {
+                alert("Por favor, crie/salve o cardápio principal para este dia antes de adicionar mais informações.");
+                return;
+            }
+
+            // Preencher os campos do modal com os detalhes atuais do cardápio
+            // Garante que o valor é um número (ou 0 se for null/undefined)
+            choInput.value = currentCardapioDetails ? (parseFloat(currentCardapioDetails.cho) || 0) : 0;
+            lipInput.value = currentCardapioDetails ? (parseFloat(currentCardapioDetails.lip) || 0) : 0;
+            ptnInput.value = currentCardapioDetails ? (parseFloat(currentCardapioDetails.ptn) || 0) : 0;
+            kcalInput.value = currentCardapioDetails ? (parseFloat(currentCardapioDetails.kcal) || 0) : 0;
+            pesoPratoInput.value = currentCardapioDetails ? (parseInt(currentCardapioDetails.peso_prato) || 0) : 0;
+
+            moreInfoModal.style.display = "flex"; // Exibe o modal
+        }
+
+        function closeMoreInfoModal() {
+            moreInfoModal.style.display = "none"; // Esconde o modal
+        }
+
+        async function saveMoreInfoDetails() {
+            if (!currentCardapioId) {
+                alert("Nenhum cardápio selecionado para atualizar.");
+                return;
+            }
+
+            // Pega os valores atualizados do modal
+            const updatedCho = parseFloat(choInput.value) || 0.0;
+            const updatedLip = parseFloat(lipInput.value) || 0.0;
+            const updatedPtn = parseFloat(ptnInput.value) || 0.0;
+            const updatedKcal = parseFloat(kcalInput.value) || 0.0;
+            const updatedPesoPrato = parseInt(pesoPratoInput.value) || 0;
+
+            // Cria o payload de atualização para o cardápio
+            // Importante: PUT normalmente exige que você envie o objeto COMPLETO.
+            // Então, reusamos os detalhes existentes e atualizamos apenas os campos do modal.
+            const updatedCardapioPayload = {
+                id: currentCardapioId, // O ID é necessário para o PUT
+                data: currentCardapioDetails.data, // Mantém a data existente
+                descricao: currentCardapioDetails.descricao, // Mantém a descrição existente
+                cho: updatedCho,
+                lip: updatedLip,
+                ptn: updatedPtn,
+                kcal: updatedKcal,
+                peso_prato: updatedPesoPrato
+            };
+
+            try {
+                const response = await fetch(`http://localhost:8101/cardapio/${currentCardapioId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updatedCardapioPayload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro ao atualizar detalhes: ${response.status}`);
+                }
+
+                alert("Detalhes do cardápio atualizados com sucesso!");
+                closeMoreInfoModal();
+                loadCardapioData(currentSelectedDate); // Recarrega os dados na tela principal
+            } catch (error) {
+                console.error("Erro ao salvar detalhes do cardápio:", error);
+                alert(`Erro ao salvar detalhes: ${error.message}`);
+            }
+        }
+
+
+        // Inicialização do Flatpickr
+        flatpickr("#calendarInput", {
+            inline: true, // Mostra o calendário sempre visível
+            locale: "pt", // Define o idioma para Português
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    loadCardapioData(selectedDates[0]);
+                }
+            },
+            onReady: function(selectedDates, dateStr, instance) {
+                // Carrega dados para a data atual ou a data pré-selecionada no calendário
+                if (selectedDates.length === 0) {
+                    loadCardapioData(new Date());
+                } else {
+                    loadCardapioData(selectedDates[0]);
+                }
+            }
+        });
+
+        // Eventos dos botões
+        saveCardapioButton.addEventListener("click", saveCardapioData);
+        moreInfoButton.addEventListener("click", openMoreInfoModal);
+        closeMoreInfoButton.addEventListener("click", closeMoreInfoModal);
+        saveMoreInfoDetailsButton.addEventListener("click", saveMoreInfoDetails);
+
+      });
+    </script>
+  </head>
+  <body class="bg-gray-100 p-4">
+    <nav class="bg-white shadow mb-6 p-4 rounded-2xl flex justify-between items-center">
+      <h1 class="text-xl font-bold">Sistema de Cardápios</h1>
+      <div class="space-x-4">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Cadastrar Pré-Cardápios</button>
+        <button class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Exportar Informações</button>
+      </div>
+    </nav>
+
+    
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white p-4 rounded-2xl shadow ">
+        <h2 class="text-xl font-bold mb-2">Calendário</h2>
+        <input type="text" id="calendarInput" class="w-full mt-1 p-2 border rounded-md" style="display: none;">
+        <div id="calendarContainer" class="flatpickr-calendar scale-110 origin-top-left"></div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow">
+        <h2 id="selectedDate" class="text-2xl font-bold mb-4">Dia --/--/----</h2>
+
+        <div class="mb-4">
+          <h3 class="text-lg font-semibold">Cardápio do dia</h3>
+          <textarea id="cardapioText" class="w-full mt-1 p-2 border rounded-md" rows="4" placeholder="Prato do dia:"></textarea>
+          <button id="moreInfoButton" class="mt-2 text-blue-600 hover:underline" disabled>Mais informações</button>
+        </div>
+
+        <div>
+          <h3 class="text-lg font-semibold mb-2">Quantidade de almoço</h3>
+          <div class="space-y-2">
+            <div>
+              <label class="block font-medium">Aldeia:</label>
+              <input type="number" id="quantidadeAldeia" class="w-full border rounded-md p-2" />
+            </div>
+            <div>
+              <label class="block font-medium">Flor do Campo:</label>
+              <input type="number" id="quantidadeFlorDoCampo" class="w-full border rounded-md p-2" />
+            </div>
+            <div>
+              <label class="block font-medium">Cooperativa:</label>
+              <input type="number" id="quantidadeCooperativa" class="w-full border rounded-md p-2" />
+            </div>
+          </div>
+        </div>
+        <button id="saveCardapioButton" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full">Salvar Cardápio</button>
+      </div>
+    </div>
+
+    <div id="moreInfoModal" class="modal">
+      <div class="modal-content">
+        <span class="close-button" id="closeMoreInfoButton">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Mais Informações do Cardápio</h2>
+        
+        <div class="modal-input-group">
+          <label for="choInput">CHO (Carboidratos):</label>
+          <input type="number" id="choInput" step="0.01" />
+        </div>
+        <div class="modal-input-group">
+          <label for="lipInput">LIP (Lipídios):</label>
+          <input type="number" id="lipInput" step="0.01" />
+        </div>
+        <div class="modal-input-group">
+          <label for="ptnInput">PTN (Proteínas):</label>
+          <input type="number" id="ptnInput" step="0.01" />
+        </div>
+        <div class="modal-input-group">
+          <label for="kcalInput">KCAL (Calorias):</label>
+          <input type="number" id="kcalInput" step="0.01" />
+        </div>
+        <div class="modal-input-group">
+          <label for="pesoPratoInput">Peso do Prato (g):</label>
+          <input type="number" id="pesoPratoInput" />
+        </div>
+
+        <div class="flex justify-end space-x-2 mt-4">
+          <button id="saveMoreInfoDetailsButton" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Salvar Detalhes</button>
+          <button class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400" onclick="document.getElementById('moreInfoModal').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>
